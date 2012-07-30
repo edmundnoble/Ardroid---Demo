@@ -64,7 +64,7 @@ all: ArduinoC.elf secondary-outputs
 ArduinoC.elf: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: AVR C++ Linker'
-	avr-gcc -Os -Wl,--gc-sections  -L"/home/edmund/workspac/Arduino_Mega_2560_or_Mega_ADK/Release" -mmcu=atmega2560  -o"ArduinoC.elf" $(OBJS) $(USER_OBJS) $(LIBS) -lm
+	avr-gcc -Os -Wl,--gc-sections  -L"/home/edmund/workspace/Release" -mmcu=atmega2560  -o"ArduinoC.elf" $(OBJS) $(USER_OBJS) $(LIBS) -lm
 	@echo 'Finished building target: $@'
 	@echo ' '
 

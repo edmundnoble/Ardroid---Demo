@@ -5,5 +5,7 @@
     <string name="app_name">Ardroid</string>
     <string name="toggle">Toggle</string>
     <string name="connectButton">Connect</string>
+    <string name="activebutton">Inactive</string>
+    <string name="rpmview">"RPM: "</string>
 
 </resources>

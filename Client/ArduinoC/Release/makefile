@@ -8,6 +8,9 @@ RM := rm -rf
 
 # All of the sources participating in the build are defined here
 -include sources.mk
+-include arduino/subdir.mk
+-include Usb_Host_Shield/subdir.mk
+-include Stepper/subdir.mk
 -include subdir.mk
 -include objects.mk
 
@@ -64,7 +67,7 @@ all: ArduinoC.elf secondary-outputs
 ArduinoC.elf: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: AVR C++ Linker'
-	avr-gcc -Os -Wl,--gc-sections  -L"/home/edmund/workspace/Release" -mmcu=atmega2560  -o"ArduinoC.elf" $(OBJS) $(USER_OBJS) $(LIBS) -lm
+	avr-gcc -Os -Wl,--gc-sections  -L"/home/edmund/workspace/Arduino_Mega_2560_or_Mega_ADK/Release" -mmcu=atmega2560  -o"ArduinoC.elf" $(OBJS) $(USER_OBJS) $(LIBS) -lm
 	@echo 'Finished building target: $@'
 	@echo ' '
 

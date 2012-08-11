@@ -7,6 +7,7 @@
 #ifndef ArduinoC_H_
 #define ArduinoC_H_
 #include "Arduino.h"
+#include "Stepper.h"
 #include <Stepper.h>
 //add your includes for the project ArduinoC here
 

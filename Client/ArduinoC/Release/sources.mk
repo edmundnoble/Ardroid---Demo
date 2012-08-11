@@ -31,5 +31,8 @@ SIZEDUMMY :=
 
 # Every subdirectory with source files must be described here
 SUBDIRS := \
+arduino \
+Usb_Host_Shield \
+Stepper \
 . \
 

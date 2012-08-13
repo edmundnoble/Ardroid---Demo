@@ -4,3 +4,12 @@
 *.jar
 *.war
 *.ear
+
+# C Files #
+*.o
+*.elf
+*.hex
+*.lss
+*.d
+*.eep
+

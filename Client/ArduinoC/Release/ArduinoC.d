@@ -9,7 +9,7 @@ ArduinoC.d ArduinoC.o: ../ArduinoC.cpp ../ArduinoC.h \
  /home/edmund/arduino-1.0.1/hardware/arduino/cores/arduino/Printable.h \
  /home/edmund/arduino-1.0.1/hardware/arduino/cores/arduino/new.h \
  /home/edmund/arduino-1.0.1/hardware/arduino/variants/mega/pins_arduino.h \
- ../Stepper.h /home/edmund/arduino-1.0.1/libraries/Stepper/Stepper.h \
+ /home/edmund/arduino-1.0.1/libraries/Stepper/Stepper.h \
  /home/edmund/arduino-1.0.1/libraries/Usb_Host_Shield/Max3421e.h \
  /home/edmund/arduino-1.0.1/libraries/Usb_Host_Shield/Max3421e_constants.h \
  /home/edmund/arduino-1.0.1/libraries/Usb_Host_Shield/ch9.h \
@@ -39,8 +39,6 @@ ArduinoC.d ArduinoC.o: ../ArduinoC.cpp ../ArduinoC.h \
 /home/edmund/arduino-1.0.1/hardware/arduino/cores/arduino/new.h:
 
 /home/edmund/arduino-1.0.1/hardware/arduino/variants/mega/pins_arduino.h:
-
-../Stepper.h:
 
 /home/edmund/arduino-1.0.1/libraries/Stepper/Stepper.h:
 

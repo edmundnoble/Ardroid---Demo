@@ -7,5 +7,6 @@
     <string name="connectButton">Connect</string>
     <string name="activebutton">Inactive</string>
     <string name="rpmview">"RPM: "</string>
+    <string name="turning">Turning:</string>
 
 </resources>

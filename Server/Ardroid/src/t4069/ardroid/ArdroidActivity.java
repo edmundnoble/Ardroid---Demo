@@ -11,6 +11,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
 import android.hardware.usb.UsbAccessory;
 import android.hardware.usb.UsbManager;
 import android.os.Bundle;
@@ -22,21 +24,22 @@ import android.widget.Button;
 import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.TextView;
+import android.widget.Toast;
 
 public class ArdroidActivity extends Activity {
 	private static final String TAG = "Ardroid";
 	/** Called when the activity is first created. */
-	boolean on = false, connected = false;
+	boolean on = false, connected = false, reverse = false;
 	int currentRPM = 0;
 	SeekBar seekBar;
 	TextView rpmView, activeView;
 	Button activeButton, connectButton;
-	UsbManager manager;
+	UsbManager mUsbManager;
 	UsbAccessory accessory;
-	ParcelFileDescriptor mFileDescriptor;
-	FileInputStream mInputStream;
 	FileOutputStream mOutputStream;
-
+	FileInputStream mInputStream;
+	ParcelFileDescriptor fd;
+	boolean mPermissionRequestPending = false;
 	private static final String ACTION_USB_PERMISSION = "t4069.ardroid.USB_PERMISSION";
 	PendingIntent mPermissionIntent;
 
@@ -45,114 +48,164 @@ public class ArdroidActivity extends Activity {
 		setContentView(R.layout.main);
 		mPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(
 				ACTION_USB_PERMISSION), 0);
+		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 		IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
+		filter.addAction(UsbManager.ACTION_USB_ACCESSORY_DETACHED);
 		registerReceiver(mUsbReceiver, filter);
-		manager = (UsbManager) getSystemService(USB_SERVICE);
+		mUsbManager = (UsbManager) getSystemService(USB_SERVICE);
+		initWidgets();
+	}
+
+	private void initWidgets() {
 		seekBar = (SeekBar) findViewById(R.id.seekBar1);
 		rpmView = (TextView) findViewById(R.id.textView1);
 		activeView = (TextView) findViewById(R.id.textView2);
-		seekBar.setMax(40);
-		seekBar.setProgress(20);
 		seekBar.setOnSeekBarChangeListener(new OnSeekBarChangeListener() {
+			char send = 0;
+
 			public void onProgressChanged(SeekBar seekBar, int progress,
 					boolean fromUser) {
-				currentRPM = progress - 20;
-				rpmView.setText("RPM: " + currentRPM);
-				if (on)
-					sendSpeed(currentRPM);
+				currentRPM = (progress % 255);
+				Log.d(TAG, "RPM equals:" + currentRPM);
+				reverse = (progress - 255 < 0);
+				rpmView.setText("RPM: " + (progress - 255));
+				send++;
+				if (send % 4 == 0 && connected) {
+					sendStatus();
+				}
 			}
 
 			public void onStartTrackingTouch(SeekBar seekBar) {
 			}
 
 			public void onStopTrackingTouch(SeekBar seekBar) {
+				if (connected)
+					sendStatus();
 			}
 
 		});
+		seekBar.setMax(510);
+		seekBar.setProgress(255);
 		connectButton = (Button) findViewById(R.id.button2);
 		connectButton.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
-				if (manager.getAccessoryList() == null) {
-					Log.d(TAG, "No list of accessories!");
-					return;
-				}
-				accessory = (UsbAccessory) manager.getAccessoryList()[0];
-				manager.requestPermission(accessory, mPermissionIntent);
-				if (connected) {
-					startComm();
-				}
-
+				setupAccessory();
 			}
 		});
 		activeButton = (Button) findViewById(R.id.button1);
 		activeButton.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
-				sendOn();
+				toggleOn();
 				activeView.setText((on ? "Active" : "Inactive"));
 			}
 		});
 	}
 
-	byte[] sendBuf = new byte[4];
-
-	private void sendChar(char ch) {
+	protected void sendStatus() {
 		if (!connected)
 			return;
-		sendBuf = new byte[2];
-		Character.reverseBytes(ch);
-		sendBuf[0] = (byte) (Character.reverseBytes(ch) & 0x000000ff);
-		sendBuf[1] = (byte) (ch & 0x000000ff);
-		thread.run();
+		try {
+			mOutputStream.write(on ? 1 : 0);
+			mOutputStream.write(reverse ? 1 : 0);
+			mOutputStream.write(currentRPM);
+		} catch (IOException ioe) {
+			Toast.makeText(getApplicationContext(), "Communication failed!",
+					Toast.LENGTH_SHORT).show();
+		}
+
 	}
 
-	protected void sendOn() {
-		if (!connected)
+	public void onDestroy() {
+		super.onDestroy();
+		unregisterReceiver(mUsbReceiver);
+	}
+
+	public void onResume() {
+		super.onResume();
+		accessory = null;
+		mOutputStream = null;
+		mInputStream = null;
+		fd = null;
+	}
+
+	private void setupAccessory() {
+		mPermissionIntent = PendingIntent.getBroadcast(this, 0, new Intent(
+				ACTION_USB_PERMISSION), 0);
+		if (connected) return;
+		if (mUsbManager.getAccessoryList() == null) {
+			Toast toast = Toast.makeText(getApplicationContext(),
+					"No accessories detected!", Toast.LENGTH_SHORT);
+			toast.show();
+			Log.d(TAG, "No list of accessories!");
 			return;
-		on = !on;
-		activeView.setText(on ? "Active" : "Inactive");
-		sendChar((char) Character.CONTROL);
-	}
-
-	Thread thread;
-
-	protected void startComm() {
-		mFileDescriptor = manager.openAccessory(accessory);
-		if (mFileDescriptor != null) {
-			FileDescriptor fd = mFileDescriptor.getFileDescriptor();
-			mInputStream = new FileInputStream(fd);
-			mOutputStream = new FileOutputStream(fd);
-			thread = new Thread(null, new Runnable() {
-				public void run() {
-					try {
-						mOutputStream.write(sendBuf);
-						mOutputStream.flush();
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
+		}
+		accessory = (UsbAccessory) mUsbManager.getAccessoryList()[0];
+		mUsbManager.requestPermission(accessory, mPermissionIntent);
+		while (!mUsbManager.hasPermission(accessory)) {
+			synchronized (mUsbReceiver) {
+				if (!mPermissionRequestPending) {
+					mUsbManager.requestPermission(accessory, mPermissionIntent);
+					mPermissionRequestPending = true;
 				}
-			}, "AccessoryThread");
-			thread.start();
+			}
+		}
+			openAccessory(accessory);
+	}
+
+	private void openAccessory(UsbAccessory accessory) {
+		this.accessory = accessory;
+		fd = mUsbManager.openAccessory(accessory);
+		if (fd != null) {
+			FileDescriptor mFileDescriptor = fd.getFileDescriptor();
+			mOutputStream = new FileOutputStream(mFileDescriptor);
+			mInputStream = new FileInputStream(mFileDescriptor);
+			Log.d(TAG, "accessory opened");
+			connected = true;
+		} else {
+			Log.d(TAG, "accessory open fail");
 		}
 	}
 
-	private void sendSpeed(int currentRPM) {
+	private void closeAccessory() {
+		if (fd != null && mOutputStream != null && mInputStream != null) {
+			try {
+				mInputStream.close();
+				mOutputStream.close();
+				fd.close();
+			} catch (IOException e) {
+				Log.w(TAG, "Couldn't close port!");
+				return;
+			}
+		}
+		if (on)
+			toggleOn();
+		seekBar.setProgress(255);
+		connected = false;
+		on = false;
+		fd = null;
+		mInputStream = null;
+		mOutputStream = null;
+		accessory = null;
+	}
+
+	protected void toggleOn() {
 		if (!connected)
 			return;
-		sendChar((char) Character.CONNECTOR_PUNCTUATION);
-		sendChar((char) (Integer.reverseBytes(currentRPM) & 0xffff));
-		sendChar((char) ((currentRPM) & 0xffff));
-		thread.run();
-		sendChar((char) Character.CONNECTOR_PUNCTUATION);
+		on = !on;
+		sendStatus();
 	}
 
 	private final BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
 		public void onReceive(Context context, Intent intent) {
 			String action = intent.getAction();
+			UsbAccessory accessory = intent
+					.getParcelableExtra(UsbManager.EXTRA_ACCESSORY);
 			if (ACTION_USB_PERMISSION.equals(action)) {
 				synchronized (this) {
 					if (intent.getBooleanExtra(
 							UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
 						if (accessory != null) {
+							openAccessory(accessory);
 							connected = true;
 						}
 					} else {
@@ -160,7 +213,17 @@ public class ArdroidActivity extends Activity {
 								+ accessory);
 					}
 				}
+			} else if (UsbManager.ACTION_USB_ACCESSORY_DETACHED.equals(action)) {
+				UsbAccessory mAccessory = (UsbAccessory) intent
+						.getParcelableExtra(UsbManager.EXTRA_ACCESSORY);
+				if (accessory != null && mAccessory.equals(accessory)) {
+					closeAccessory();
+				}
 			}
 		}
 	};
+
+	public void onConfigurationChanged(Configuration newConfig) {
+		super.onConfigurationChanged(newConfig);
+	}
 }
